@@ -1,14 +1,18 @@
 import dayjs from 'dayjs';
-import {createElement} from '../render.js';
+import AbstractView from './abstract-view';
 
-const createTripEventsItemTemplate = (tripEvent) => {
+const createEventsItemTemplate = (tripEvent) => {
   const {eventType, location, price, startDate, endDate, duration, offers, isFavorite} = tripEvent;
+
   const startDay = dayjs(startDate).format('MMM D');
   const beginDate = dayjs(startDate).format('YYYY-MM-DD');
+
   const startTime = dayjs(startDate).format('HH:mm');
   const startDatetime = dayjs(startDate).format('YYYY-MM-DDTHH:mm');
+
   const endTime = dayjs(endDate).format('HH:mm');
   const endDatetime = dayjs(endDate).format('YYYY-MM-DDTHH:mm');
+
   const isFavoriteClass = isFavorite ? ' event__favorite-btn--active' : '';
 
   const createOfferMarkup = (offer) => {
@@ -72,27 +76,26 @@ const createTripEventsItemTemplate = (tripEvent) => {
             </li>`;
 };
 
-export default class TripEventItemView {
-  #element = null;
+export default class EventItemView extends AbstractView {
   #tripEvent = null;
 
-  constructor(event) {
-    this.#tripEvent = event;
-  }
-
-  get element() {
-    if (!this.#element) {
-      this.#element = createElement(this.template);
-    }
-
-    return this.#element;
+  constructor(tripEvent) {
+    super();
+    this.#tripEvent = tripEvent;
   }
 
   get template() {
-    return createTripEventsItemTemplate(this.#tripEvent);
+    return createEventsItemTemplate(this.#tripEvent);
   }
 
-  removeElement() {
-    this.#element = null;
+  setEditClickHandler = (callback) => {
+    this._callback.editClick = callback;
+    this.element.querySelector('.event__rollup-btn').addEventListener('click', this.#editClickHandler);
+  }
+
+  #editClickHandler = (evt) => {
+    evt.preventDefault();
+    this._callback.editClick();
   }
 }
+
