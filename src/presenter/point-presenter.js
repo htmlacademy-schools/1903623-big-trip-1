@@ -1,4 +1,4 @@
-import PointItemView from '../view/point-item-view';
+import PointView from '../view/point-view';
 import PointEditView from '../view/point-edit-view';
 import {render, RenderPosition, replace, remove} from '../utils/render';
 
@@ -30,7 +30,7 @@ export default class PointPresenter {
     const prevPointItemComponent = this.#pointItemComponent;
     const prevPointEditComponent = this.#pointEditComponent;
 
-    this.#pointItemComponent =  new PointItemView(tripPoint);
+    this.#pointItemComponent =  new PointView(tripPoint);
     this.#pointEditComponent = new PointEditView(tripPoint);
 
     this.#pointItemComponent.setEditClickHandler(this.#handleEditClick);
@@ -63,6 +63,7 @@ export default class PointPresenter {
 
   resetView = () => {
     if (this.#mode !== Mode.DEFAULT) {
+      this.#pointEditComponent.reset(this.#tripPoint);
       this.#replaceFormToItem();
     }
   }
@@ -83,6 +84,7 @@ export default class PointPresenter {
   #escKeyDownHandler = (evt) => {
     if (evt.key === 'Escape' || evt.key === 'Esc') {
       evt.preventDefault();
+      this.#pointEditComponent.reset(this.#tripPoint);
       this.#replaceFormToItem();
     }
   }
@@ -92,6 +94,7 @@ export default class PointPresenter {
   }
 
   #handleRollupClick = () => {
+    this.#pointEditComponent.reset(this.#tripPoint);
     this.#replaceFormToItem();
   }
 
