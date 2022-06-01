@@ -1,5 +1,4 @@
 import PointAddView from '../view/point-add-view.js';
-import {nanoid} from 'nanoid';
 import {remove, render, RenderPosition} from '../utils/render.js';
 import {UserAction, UpdateType} from '../utils/const.js';
 
@@ -10,19 +9,25 @@ export default class PointNewPresenter {
   #pointAddComponent = null;
   #destroyCallback = null;
 
+  #destinations = null;
+  #offers = null;
+
   constructor(pointListContainer, changeData) {
     this.#pointListContainer = pointListContainer;
     this.#changeData = changeData;
   }
 
-  init = (callback) => {
+  init = (callback, destinations, offers) => {
     this.#destroyCallback = callback;
 
     if (this.#pointAddComponent !== null) {
       return;
     }
 
-    this.#pointAddComponent = new PointAddView();
+    this.#destinations = destinations;
+    this.#offers = offers;
+
+    this.#pointAddComponent = new PointAddView(this.#destinations, this.#offers);
     this.#pointAddComponent.setFormSubmitHandler(this.#handleFormSubmit);
     this.#pointAddComponent.setDeleteClickHandler(this.#handleDeleteClick);
 
@@ -47,9 +52,7 @@ export default class PointNewPresenter {
     this.#changeData(
       UserAction.ADD_POINT,
       UpdateType.MINOR,
-      // Пока у нас нет сервера, который бы после сохранения
-      // выдывал честный id задачи, нам нужно позаботиться об этом самим
-      {id: nanoid(), ...point},
+      point
     );
     this.destroy();
   }
