@@ -1,15 +1,15 @@
 import SmartView from './smart-view';
-import {createOffersSectionMarkup, createPointTypesMarkup} from '../utils/forms';
+import {createPointTypesMarkup} from '../utils/types';
+import {changeCheckedOffers, createOffersSectionMarkup, getChangedByTypeOffers} from '../utils/offers';
 import flatpickr from 'flatpickr';
 import he from 'he';
 
 import '../../node_modules/flatpickr/dist/flatpickr.min.css';
 
-const createPointAddTemplate = (point, destinations, offers) => {
-  const {basePrice: price, destination, type} = point;
+const createPointAddTemplate = (point, destinations, allOffers) => {
+  const {basePrice: price, destination, type, offers, isDisabled, isSaving} = point;
   const pointTypeLabel = type ? type.charAt(0).toUpperCase() + type.slice(1) : '';
-
-  const pointTypesMarkup = createPointTypesMarkup(offers, type);
+  const pointTypesMarkup = createPointTypesMarkup(allOffers, type);
   const destinationOptions = destinations.map((x) => (`<option value="${x.name}"></option>`)).join('');
 
   const createPhotosMarkup = (dest) => {
@@ -33,7 +33,8 @@ const createPointAddTemplate = (point, destinations, offers) => {
                       <span class="visually-hidden">Choose event type</span>
                       <img class="event__type-icon" width="17" height="17" src="img/icons/${type}.png" alt="Event type icon">
                     </label>
-                    <input class="event__type-toggle  visually-hidden" id="event-type-toggle-1" type="checkbox">
+                    <input class="event__type-toggle  visually-hidden" id="event-type-toggle-1" type="checkbox"
+                    ${isDisabled ? 'disabled' : ''}>
 
                     <div class="event__type-list">
                       <fieldset class="event__type-group">
@@ -47,7 +48,8 @@ const createPointAddTemplate = (point, destinations, offers) => {
                     <label class="event__label  event__type-output" for="event-destination-1">
                       ${pointTypeLabel}
                     </label>
-                    <input class="event__input  event__input--destination" id="event-destination-1" type="text" name="event-destination" value="${he.encode(destination.name ? destination.name : '')}" list="destination-list-1">
+                    <input class="event__input  event__input--destination" id="event-destination-1" type="text" name="event-destination"
+                    value="${he.encode(destination.name ? destination.name : '')}" list="destination-list-1" ${isDisabled ? 'disabled' : ''}>
                     <datalist id="destination-list-1">
                       ${destinationOptions}
                     </datalist>
@@ -55,10 +57,12 @@ const createPointAddTemplate = (point, destinations, offers) => {
 
                   <div class="event__field-group  event__field-group--time">
                     <label class="visually-hidden" for="event-start-time-1">From</label>
-                    <input class="event__input event__input--time event__input-start-time" id="event-start-time-1" type="text" name="event-start-time" value="">
+                    <input class="event__input event__input--time event__input-start-time" id="event-start-time-1"
+                    type="text" name="event-start-time" value="" ${isDisabled ? 'disabled' : ''}>
                     &mdash;
                     <label class="visually-hidden" for="event-end-time-1">To</label>
-                    <input class="event__input event__input--time event__input-end-time" id="event-end-time-1" type="text" name="event-end-time" value="">
+                    <input class="event__input event__input--time event__input-end-time" id="event-end-time-1"
+                    type="text" name="event-end-time" value="" ${isDisabled ? 'disabled' : ''}>
                   </div>
 
                   <div class="event__field-group  event__field-group--price">
@@ -66,13 +70,17 @@ const createPointAddTemplate = (point, destinations, offers) => {
                       <span class="visually-hidden">Price</span>
                       &euro;
                     </label>
-                    <input class="event__input  event__input--price" id="event-price-1" type="text" name="event-price" value="${he.encode(price.toString() ? price.toString() : '')}">
+                    <input class="event__input  event__input--price" id="event-price-1" type="text" name="event-price"
+                    value="${he.encode(price.toString() ? price.toString() : '')}" ${isDisabled ? 'disabled' : ''}>
                   </div>
 
-                  <button class="event__save-btn  btn  btn--blue" type="submit">Save</button>
+                  <button class="event__save-btn  btn  btn--blue" type="submit" ${isDisabled ? 'disabled' : ''}>
+                    ${isSaving ? 'Saving...' : 'Save'}</button>
                   <button class="event__reset-btn" type="reset">Cancel</button>
                 </header>
-                <section class="event__details">${editedOffersMarkup}<section class="event__section  event__section--destination">
+                <section class="event__details ${isDisabled ? 'visually-hidden' : ''}">
+                       ${editedOffersMarkup}
+                    <section class="event__section  event__section--destination">
                     <h3 class="event__section-title  event__section-title--destination">Destination</h3>
                     <p class="event__destination-description">${destination.description ? destination.description : ''}</p>
                     <div class="event__photos-container">
@@ -91,20 +99,20 @@ export default class PointAddView extends SmartView {
   #datepickerTo = null;
 
   #destinations = null;
-  #offers = null;
+  #allOffers = null;
 
   constructor(destinations, offers) {
     super();
     this._data = PointAddView.createEmptyPoint(offers);
 
     this.#destinations = destinations;
-    this.#offers = offers;
+    this.#allOffers = offers;
     this.#setInnerHandlers();
     this.#setDatepicker();
   }
 
   get template() {
-    return createPointAddTemplate(this._data, this.#destinations, this.#offers);
+    return createPointAddTemplate(this._data, this.#destinations, this.#allOffers);
   }
 
   removeElement = () => {
@@ -172,6 +180,11 @@ export default class PointAddView extends SmartView {
       .addEventListener('change', this.#destinationChangeHandler);
     this.element.querySelector('.event__input--price')
       .addEventListener('change', this.#basePriceChangeHandler);
+
+    const offerElements = this.element.querySelectorAll('.event__offer-label');
+    for (let i = 0; i < offerElements.length; i++) {
+      offerElements[i].addEventListener('click', this.#offerClickHandler);
+    }
   }
 
   #dateFromChangeHandler = ([userDate]) => {
@@ -186,11 +199,19 @@ export default class PointAddView extends SmartView {
     });
   }
 
-
   #typeGroupClickHandler = (evt) => {
     evt.preventDefault();
     this.updateData({
-      type: evt.target.value
+      type: evt.target.value,
+      offers: getChangedByTypeOffers(this.#allOffers, evt.target.value)
+    }, false);
+  }
+
+  #offerClickHandler = (evt) => {
+    evt.preventDefault();
+    const offers = this._data.offers;
+    this.updateData({
+      offers: changeCheckedOffers(offers, evt.target.getAttribute('data-title'))
     }, false);
   }
 
@@ -218,36 +239,6 @@ export default class PointAddView extends SmartView {
     this._callback.deleteClick(PointAddView.parseDataToPoint(this._data));
   }
 
-  static createEmptyPoint = (offers1) => {
-    const offerArray = offers1;
-    const date = new Date();
-    return {
-      basePrice: 0,
-      dateFrom: date.toISOString(),
-      dateTo: date.toISOString(),
-      destination: {
-        'description': null,
-        'name': '',
-        'pictures': []
-      },
-      //id: null,
-      isFavorite: false,
-      offers: offerArray,
-      type: 'taxi'
-    };
-  }
-
-  static parsePointToData = (point) => ({...point,
-    // В будущем здесь появится обработка Предложений (Offers).
-  });
-
-  static parseDataToPoint = (data) => {
-    const point = {...data};
-    // В будущем здесь появится обработка Предложений (Offers).
-
-    return point;
-  }
-
   #getChangedDestination = (destinationName) => {
     const allDestinations = this.#destinations;
 
@@ -263,5 +254,54 @@ export default class PointAddView extends SmartView {
       'pictures': []
     };
   };
+
+  static createEmptyPoint = (allOffers) => {
+    let currentOffers = [];
+    for (let i = 0; i < allOffers.length; i++) {
+      if (allOffers[i].type === 'taxi') {
+        currentOffers = allOffers[i].offers;
+      }
+    }
+
+    for (let i = 0; i < currentOffers.length; i++) {
+      currentOffers[i].isChosen = false;
+    }
+
+    const date = new Date();
+
+    return {
+      basePrice: 0,
+      dateFrom: date.toISOString(),
+      dateTo: date.toISOString(),
+      destination: {
+        'description': null,
+        'name': '',
+        'pictures': []
+      },
+      isFavorite: false,
+      offers: currentOffers,
+      type: 'taxi',
+
+      isDisabled: false,
+      isSaving: false,
+      isDeleting: false
+    };
+  }
+
+  static parsePointToData = (point) => ({...point,
+    isDisabled: false,
+    isSaving: false,
+    isDeleting: false
+  });
+
+  static parseDataToPoint = (data) => {
+    const point = {...data};
+
+    delete point.isDisabled;
+    delete point.isSaving;
+    delete point.isDeleting;
+
+    return point;
+  }
 }
 

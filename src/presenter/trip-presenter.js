@@ -3,7 +3,7 @@ import PointListView from '../view/points-list-view.js';
 import LoadingView from '../view/loading-view.js';
 import NoPointView from '../view/no-trip-points-view.js';
 
-import PointPresenter from './point-presenter.js';
+import PointPresenter, {State as PointPresenterViewState} from './point-presenter.js';
 import PointNewPresenter from './point-new-presenter.js';
 
 import {render, RenderPosition, remove} from '../utils/render.js';
@@ -90,13 +90,9 @@ export default class TripPresenter {
   }
 
   createPoint = (callback) => {
-    //ПРОВЕРИТЬ
     this.#clearTable();
     this.#renderTable();
-    //ПРОВЕРИТЬ
 
-    //this.#currentSortType = SortType.SORT_DAY;
-    //this.#filterModel.setFilter(UpdateType.MAJOR, FilterType.EVERYTHING);
     this.#pointNewPresenter.init(callback, this.#destinations, this.#offers);
   }
 
@@ -105,16 +101,31 @@ export default class TripPresenter {
     this.#pointPresenter.forEach((presenter) => presenter.resetView());
   }
 
-  #handleViewAction = (actionType, updateType, update) => {
+  #handleViewAction = async (actionType, updateType, update) => {
     switch (actionType) {
       case UserAction.UPDATE_POINT:
-        this.#pointsModel.updatePoint(updateType, update);
+        this.#pointPresenter.get(update.id).setViewState(PointPresenterViewState.SAVING);
+        try {
+          await this.#pointsModel.updatePoint(updateType, update);
+        } catch(err) {
+          this.#pointPresenter.get(update.id).setViewState(PointPresenterViewState.ABORTING);
+        }
         break;
       case UserAction.ADD_POINT:
-        this.#pointsModel.addPoint(updateType, update);
+        this.#pointNewPresenter.setSaving();
+        try {
+          await this.#pointsModel.addPoint(updateType, update);
+        } catch(err) {
+          this.#pointNewPresenter.setAborting();
+        }
         break;
       case UserAction.DELETE_POINT:
-        this.#pointsModel.deletePoint(updateType, update);
+        this.#pointPresenter.get(update.id).setViewState(PointPresenterViewState.DELETING);
+        try {
+          await this.#pointsModel.deletePoint(updateType, update);
+        } catch(err) {
+          this.#pointPresenter.get(update.id).setViewState(PointPresenterViewState.ABORTING);
+        }
         break;
     }
   }
@@ -189,9 +200,8 @@ export default class TripPresenter {
 
     remove(this.#sortComponent);
     remove(this.#loadingComponent);
-    //ПРОВЕРИТЬ
     remove(this.#pointListComponent);
-    //ПРОВЕРИТЬ
+
     if (this.#noPointComponent) {
       remove(this.#noPointComponent);
     }
@@ -206,9 +216,9 @@ export default class TripPresenter {
       this.#renderLoading();
       return;
     }
-    //ПРОВЕРИТЬ
+
     render(this.#tableContainer, this.#pointListComponent, RenderPosition.BEFOREEND);
-    //ПРОВЕРИТЬ
+
     const points = this.points;
     const pointCount = points.length;
 
